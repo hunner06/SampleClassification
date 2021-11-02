@@ -10,6 +10,8 @@ namespace SampleClassification.Data
 {
    public class ClassificationDataContext : DbContext
     {
+        public static string _connectionString = ".;Database=MLClassification;Trusted_Connection=True;MultipleActiveResultSets=true";
+
         public DbSet<ModelInput> ModelInput { get; set; }
 
         public ClassificationDataContext()
@@ -18,6 +20,6 @@ namespace SampleClassification.Data
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)
-            => options.UseSqlServer("Server=.;Database=MLClassification;Trusted_Connection=True;MultipleActiveResultSets=true");
+            => options.UseSqlServer($"Server={_connectionString}");
     }
 }

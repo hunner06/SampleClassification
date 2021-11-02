@@ -13,6 +13,8 @@ using Microsoft.ML.Data;
 using SampleClassification.Model;
 using SampleClassification.ConsoleApp;
 using SampleClassification.Data.Models;
+using SampleClassification.Data;
+using Microsoft.Data.SqlClient;
 
 namespace SampleClassification.ConsoleApp
 {
@@ -30,23 +32,31 @@ namespace SampleClassification.ConsoleApp
         
         public static void TrainModel(string trainDataFilePath)
         {
-            DataManagement.PrepareCSV(trainDataFilePath);
+            //DataManagement.PrepareCSV(trainDataFilePath);
 
-            var combinedCSV_FilePath = Path.Combine(trainDataFilePath, "Combined.csv");
+            //var combinedCSV_FilePath = Path.Combine(trainDataFilePath, "Combined.csv");
 
-            CreateModel(combinedCSV_FilePath);
+            CreateModel();
         }
         
-        private static void CreateModel(string trainDataFilePath)
+        private static void CreateModel()
         {
             // Load Data
-            IDataView trainingDataView = mlContext.Data.LoadFromTextFile<ModelInput>(
-                                            path: trainDataFilePath,
-                                            hasHeader: true,
-                                            trimWhitespace: true,
-                                            separatorChar: ',',
-                                            allowQuoting: true,
-                                            allowSparse: false);
+            //IDataView trainingDataView = mlContext.Data.LoadFromEnumerable<ModelInput>(
+            //                                data: trainDataFilePath,
+            //                                hasHeader: true,
+            //                                trimWhitespace: true,
+            //                                separatorChar: ',',
+            //                                allowQuoting: true,
+            //                                allowSparse: false);
+
+            DatabaseLoader loader = mlContext.Data.CreateDatabaseLoader<ModelInput>();
+            string connectionString = $"Data Source={ClassificationDataContext._connectionString}";
+
+            string sqlCommand = "SELECT Book, BookTranslation FROM ModelInput";
+
+            DatabaseSource dbSource = new DatabaseSource(SqlClientFactory.Instance, connectionString, sqlCommand);
+            IDataView trainingDataView = loader.Load(dbSource);
 
             // Build training pipeline
             IEstimator<ITransformer> trainingPipeline = BuildTrainingPipeline(mlContext);

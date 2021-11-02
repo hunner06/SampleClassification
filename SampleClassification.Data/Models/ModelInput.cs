@@ -9,6 +9,8 @@ namespace SampleClassification.Data.Models
 {
     public class ModelInput
     {
+        public int Id { get; set; }
+
         [ColumnName("col0"), LoadColumn(0)]
         public string Book { get; set; }
 

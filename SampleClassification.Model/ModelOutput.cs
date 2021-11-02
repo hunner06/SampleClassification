@@ -5,6 +5,7 @@
 //*****************************************************************************************
 
 using System;
+using System.Collections.Generic;
 using Microsoft.ML.Data;
 
 namespace SampleClassification.Model
@@ -16,5 +17,6 @@ namespace SampleClassification.Model
         [ColumnName("PredictedLabel")]
         public String Prediction { get; set; }
         public float[] Score { get; set; }
+       
     }
 }
