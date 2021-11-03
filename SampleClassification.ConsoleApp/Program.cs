@@ -35,7 +35,7 @@ namespace SampleClassification.ConsoleApp
             //Run to predict
 
             
-            CsvInput.PredictFromCSV(_PredictCSV_Location, true);
+            CsvInput.PredictFromCSV(_PredictCSV_Location, true, db);
 
 
         }

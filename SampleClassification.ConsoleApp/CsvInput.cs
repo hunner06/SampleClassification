@@ -1,7 +1,7 @@
 ﻿using Microsoft.ML;
-using Microsoft.ML.Data;
 using Microsoft.ML.Trainers;
 using Microsoft.VisualBasic.FileIO;
+using SampleClassification.Data;
 using SampleClassification.Data.Models;
 using SampleClassification.Model;
 using System;
@@ -9,21 +9,23 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SampleClassification.ConsoleApp
 {
-    class CsvInput
+    internal class CsvInput
     {
-
-        public static void PredictFromCSV(string filePath, bool hasResults)
+        public static void PredictFromCSV(string filePath, bool hasResults, ClassificationDataContext db)
         {
             // var csvList = new List<ModelInput>();
             var newCsv = new StringBuilder();
-           // var filePath = "C:\\Users\\hguest\\Documents\\RESOURCES\\.NET ML\\parishTest\\app\\SampleClassification\\SampleClassification.ConsoleApp\\Data";
+            // var filePath = "C:\\Users\\hguest\\Documents\\RESOURCES\\.NET ML\\parishTest\\app\\SampleClassification\\SampleClassification.ConsoleApp\\Data";
             var newCSVfileName = Path.Combine(filePath, "results.csv");
             var inputFile = Path.Combine(filePath, "inputData.csv");
             var sameFindingsCount = 0;
             var count = 0;
+            var matchCount = 0;
+            var allCount = 0;
             try
             {
                 using TextFieldParser csvParser = new(inputFile);
@@ -43,66 +45,88 @@ namespace SampleClassification.ConsoleApp
                     string[] fields = csvParser.ReadFields();
 
                     //var resultsPrevious = fields.Length == 2;
-                    
+
                     if (fields.Length == 1 || hasResults)
                     {
                         var inputData = fields[0];
-                        var originalTranslation = fields[1];
-                        //foreach (string field in fields)
-                        //{
-                        //    //TODO: Process field
-                        //}
+                        var originalTranslation = hasResults ? fields[1] : "";
+                        var result = "";
+                        var score = "";
+                        var sameFindings = true;
+                        var predictionResult = new ModelOutput();
 
-                        ModelInput sampleData = new ModelInput()
+                        //See if there is a match
+                        var cleanInput = CleanInput(inputData).ToUpper().Trim();
+                        var match = db.ModelInput.ToList().FirstOrDefault(x => CleanInput(x.Book).ToUpper().Trim() == cleanInput);
+                        //FindExactMatch();
+                        if (match?.Id > 0)
                         {
-                            Book = inputData,
-                        };
-
-                        // Make a single prediction on the sample data and print results
-                        var predictionResult = ConsumeModel.Predict(sampleData);
-
-                        //var labelBuffer = new VBuffer<ReadOnlyMemory<char>>();
-
-                        //var labels = labelBuffer.DenseValues().Select(l => l.ToString()).ToArray();
-                        //var index = Array.IndexOf(labels, predictionResult.Prediction);
-                        //var score = predictionResult.Score[index];
-                        var score = ConsumeModel.GetTopScore(predictionResult); ;
-                        // var perdictionScore = $"[{ String.Join(",", predictionResult.Score)}]";
-                        var sameFindings = predictionResult.Prediction.ToUpper() == originalTranslation.ToUpper();
-                        count++;
-                        if (sameFindings)
-                        {
-                            sameFindingsCount++;
+                            matchCount++;
+                            score = "MATCH";
+                            result = match.BookTranslation;
                         }
                         else
                         {
-                           // score = ConsumeModel.GetTop3(predictionResult);
-                        }
+                            ModelInput sampleData = new ModelInput()
+                            {
+                                Book = inputData,
+                            };
 
-                        //var newLine = $"{inputData},{predictionResult.Prediction},{perdictionScore}";
-                        // var newLine = $"{inputData},{predictionResult.Prediction},{originalTranslation},{sameFindings}";
-                        var newLine = string.Format("{0},{1},{2},{3},{4}", inputData, originalTranslation, predictionResult.Prediction, sameFindings, score);
+                            // Make a single prediction on the sample data and print results
+                            predictionResult = ConsumeModel.Predict(sampleData);
+                            result = predictionResult.Prediction;
+                            score = ConsumeModel.GetTopScore(predictionResult);
+
+                            sameFindings = predictionResult.Prediction.ToUpper() == originalTranslation.ToUpper();
+                            count++;
+                            if (sameFindings && hasResults)
+                            {
+                                sameFindingsCount++;
+                            }
+                            else
+                            {
+                                // score = ConsumeModel.GetTop3(predictionResult);
+                            }
+                        }
+                        allCount++;
+                        var newLine = string.Format("{0},{1},{2},{3},{4}", inputData, originalTranslation, result, sameFindings, score);
                         newCsv.AppendLine(newLine);
                     }
-                    
                 }
-                var accuracy = Math.Floor((sameFindingsCount / count) * 100.0);
+                var calcAccuracy = hasResults && ((sameFindingsCount > 0) && count > 0);
+                var accuracy = calcAccuracy ? Math.Floor((sameFindingsCount / count) * 100.0) : 0;
+                newCsv.AppendLine($"Processed:,{allCount}");
+                newCsv.AppendLine($"Match Count:,{matchCount}");
                 newCsv.AppendLine($"Accuracy correct:,{accuracy}");
                 newCsv.AppendLine($"Same Findings count: {sameFindingsCount} of {count}");
                 File.WriteAllText(newCSVfileName, newCsv.ToString());
                 Console.WriteLine($"Same Findings count: {sameFindingsCount} of {count}");
                 Console.ReadLine();
             }
-            catch(Exception ex) {
+            catch (Exception ex)
+            {
                 Console.Write(ex);
             }
-           
+        }
+
+        private static string CleanInput(string strIn)
+        {
+            // Replace invalid characters with empty strings.
+            try
+            {
+                return Regex.Replace(strIn, @"[^\w\.@-]", "",
+                                     RegexOptions.None, TimeSpan.FromSeconds(1.5));
+            }
+            // If we timeout when replacing invalid characters,
+            // we should return Empty.
+            catch (RegexMatchTimeoutException)
+            {
+                return String.Empty;
+            }
         }
 
         public static void ReTrainFromCSV(string filePath)
         {
-
-
             ///Load pre-trained model
             ///
             // Create MLContext
@@ -110,22 +134,14 @@ namespace SampleClassification.ConsoleApp
 
             // Define DataViewSchema of data prep pipeline and trained model
 
-
             // Load trained model
             ITransformer trainedModel = mlContext.Model.Load(ConsumeModel.MLNetModelPath, out DataViewSchema modelSchema);
-
-
 
             ///Extract pre-trained model parameters
             ///
             // Extract trained model parameters
             LinearRegressionModelParameters originalModelParameters =
                 ((ISingleFeaturePredictionTransformer<object>)trainedModel).Model as LinearRegressionModelParameters;
-
-
-
-
-
 
             // Get Data From CSV
             var csvList = new List<ModelInput>();
@@ -153,7 +169,6 @@ namespace SampleClassification.ConsoleApp
                         BookTranslation = labelCol
                     };
                     csvList.Add(inputData);
-
                 }
 
                 ///Re-train model
@@ -168,16 +183,11 @@ namespace SampleClassification.ConsoleApp
                 //RegressionPredictionTransformer<OneVersusAllTrainer> retrainedModel =
                 //    mlContext.MulticlassClassification.Trainers.OneVersusAll()
                 //        .Fit(transformedNewData, originalModelParameters);
-
-
             }
             catch (Exception ex)
             {
                 Console.Write(ex);
             }
-
         }
-       
-
     }
 }

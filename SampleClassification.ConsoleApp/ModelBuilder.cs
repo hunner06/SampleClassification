@@ -24,6 +24,7 @@ namespace SampleClassification.ConsoleApp
        // private static string TRAIN_DATA_FILEPATH = @"C:\ML.NET_Project\ParishBooks\TrainModel\";
        // private static string Trainded_DATA_FILEPATH = @"C:\Users\hguest\Documents\RESOURCES\.NET ML\parishTest\app\addData.csv";
         private static string MODEL_FILE = ConsumeModel.MLNetModelPath;
+        private static int _numberOfIterations = 1000;
 
         // Create MLContext to be shared across the model creation workflow objects 
         // Set a random seed for repeatable/deterministic results across multiple trainings.
@@ -80,7 +81,7 @@ namespace SampleClassification.ConsoleApp
                                       .Append(mlContext.Transforms.NormalizeMinMax("Features", "Features"))
                                       .AppendCacheCheckpoint(mlContext);
             // Set the training algorithm 
-            var trainer = mlContext.MulticlassClassification.Trainers.OneVersusAll(mlContext.BinaryClassification.Trainers.AveragedPerceptron(labelColumnName: "col1", numberOfIterations: 10, featureColumnName: "Features"), labelColumnName: "col1")
+            var trainer = mlContext.MulticlassClassification.Trainers.OneVersusAll(mlContext.BinaryClassification.Trainers.AveragedPerceptron(labelColumnName: "col1", numberOfIterations: 1000, featureColumnName: "Features"), labelColumnName: "col1")
                                       .Append(mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel", "PredictedLabel"));
 
             var trainingPipeline = dataProcessPipeline.Append(trainer);
